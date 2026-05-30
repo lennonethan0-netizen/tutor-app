@@ -178,7 +178,7 @@ export default function Tool({ onBack }) {
   const [loading, setLoading] = useState('')       // '' | 'cv' | 'cover'
   const [error, setError] = useState('')
   const [copied, setCopied] = useState('')
-  const [apiKey, setApiKey] = useState(() => localStorage.getItem('applyedge_key') || '')
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem('cvapp_key') || '')
   const [showKeyPanel, setShowKeyPanel] = useState(false)
   const [keyInput, setKeyInput] = useState('')
   const resultRef = useRef(null)
@@ -186,7 +186,7 @@ export default function Tool({ onBack }) {
   function saveKey() {
     const k = keyInput.trim()
     if (!k.startsWith('sk-ant-')) { setError('API key should start with sk-ant-'); return }
-    localStorage.setItem('applyedge_key', k)
+    localStorage.setItem('cvapp_key', k)
     setApiKey(k)
     setShowKeyPanel(false)
     setKeyInput('')
@@ -194,7 +194,7 @@ export default function Tool({ onBack }) {
   }
 
   function removeKey() {
-    localStorage.removeItem('applyedge_key')
+    localStorage.removeItem('cvapp_key')
     setApiKey('')
     setShowKeyPanel(false)
   }
@@ -267,7 +267,7 @@ export default function Tool({ onBack }) {
             <div style={{ width:22, height:22, borderRadius:6, background:'linear-gradient(135deg,#6366f1,#8b5cf6)', display:'flex', alignItems:'center', justifyContent:'center' }}>
               <SparkleIcon />
             </div>
-            <span style={{ fontWeight:800, fontSize:16 }}>Apply<span className="grad">Edge</span></span>
+            <span style={{ fontWeight:800, fontSize:16 }}>CV<span className="grad">app</span></span>
           </div>
           <button
             className={`btn-secondary`}

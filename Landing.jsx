@@ -104,7 +104,7 @@ const FEATURES = [
 ]
 
 const STEPS = [
-  { n: '01', title: 'Paste the job description', desc: 'Copy the job posting you\'re applying for and paste it in. ApplyEdge extracts every keyword the employer cares about.' },
+  { n: '01', title: 'Paste the job description', desc: 'Copy the job posting you\'re applying for and paste it in. CVapp extracts every keyword the employer cares about.' },
   { n: '02', title: 'Add your CV or experience', desc: 'Paste your existing CV, or describe your experience from scratch. We work with both.' },
   { n: '03', title: 'Get your score and optimized CV', desc: 'Instant ATS score, missing keyword list, and a fully rewritten CV ready to copy or download as PDF.' },
 ]
@@ -200,7 +200,7 @@ export default function Landing({ onStart }) {
             <div style={{ width:28, height:28, borderRadius:8, background:'linear-gradient(135deg,#6366f1,#8b5cf6)', display:'flex', alignItems:'center', justifyContent:'center' }}>
               <SparkleIcon />
             </div>
-            <span style={{ fontWeight:800, fontSize:18, letterSpacing:'-0.02em' }}>Apply<span className="grad">Edge</span></span>
+            <span style={{ fontWeight:800, fontSize:18, letterSpacing:'-0.02em' }}>CV<span className="grad">app</span></span>
           </div>
           <div style={{ display:'flex', alignItems:'center', gap:32 }}>
             <a href="#how" style={{ fontSize:14, fontWeight:500, color:'var(--text-muted)', textDecoration:'none' }} className="hidden md:block">How it works</a>
@@ -230,7 +230,7 @@ export default function Landing({ onStart }) {
           </h1>
 
           <p style={{ fontSize:'clamp(16px,2vw,20px)', color:'var(--text-muted)', maxWidth:560, margin:'0 auto 40px', lineHeight:1.6 }}>
-            75% of CVs are filtered out by Applicant Tracking Systems before a recruiter ever sees them. ApplyEdge shows you your score and fixes it — in 30 seconds.
+            75% of CVs are filtered out by Applicant Tracking Systems before a recruiter ever sees them. CVapp shows you your score and fixes it — in 30 seconds.
           </p>
 
           <div style={{ display:'flex', flexWrap:'wrap', gap:12, justifyContent:'center', marginBottom:64 }}>
@@ -257,7 +257,7 @@ export default function Landing({ onStart }) {
               <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
                 <path d="M6 16h20M18 8l8 8-8 8" stroke="#6366f1" strokeWidth="2" strokeLinecap="round"/>
               </svg>
-              <span style={{ fontSize:12, fontWeight:600, color:'#6366f1' }}>ApplyEdge</span>
+              <span style={{ fontSize:12, fontWeight:600, color:'#6366f1' }}>CVapp</span>
             </div>
 
             <div className="card glow-green" style={{ padding:'28px 36px', display:'flex', flexDirection:'column', alignItems:'center', gap:16, minWidth:180 }}>
@@ -422,10 +422,10 @@ export default function Landing({ onStart }) {
             <div style={{ width:24, height:24, borderRadius:6, background:'linear-gradient(135deg,#6366f1,#8b5cf6)', display:'flex', alignItems:'center', justifyContent:'center' }}>
               <SparkleIcon />
             </div>
-            <span style={{ fontWeight:700, fontSize:16 }}>Apply<span className="grad">Edge</span></span>
+            <span style={{ fontWeight:700, fontSize:16 }}>CV<span className="grad">app</span></span>
           </div>
           <div style={{ color:'var(--text-muted)', fontSize:13 }}>
-            © 2025 ApplyEdge. Built with Claude AI.
+            © 2025 CVapp. Built with Claude AI.
           </div>
           <div style={{ display:'flex', gap:20 }}>
             {['Privacy','Terms','Contact'].map(l => (
