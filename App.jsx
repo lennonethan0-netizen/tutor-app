@@ -82,8 +82,8 @@ function SuccessIcon() {
 function Navbar({ scrolled }) {
   return (
     <nav className={`navbar${scrolled ? ' navbar--scrolled' : ''}`} role="navigation" aria-label="Main">
-      <a href="#hero" className="navbar__brand" aria-label="Ethan Lenno – Home">
-        <span className="navbar__name">Ethan Lenno</span>
+      <a href="#hero" className="navbar__brand" aria-label="Ethan Lennon – Home">
+        <span className="navbar__name">Ethan Lennon</span>
         <span className="navbar__sub">Racing Driver</span>
       </a>
       <ul className="navbar__links">
@@ -114,7 +114,7 @@ function Hero() {
 
         <h1 className="hero__name">
           <span>Ethan</span>
-          <span className="hero__name-accent">Lenno</span>
+          <span className="hero__name-accent">Lennon</span>
         </h1>
 
         <p className="hero__tagline">Born to Race. Built to Win.</p>
@@ -232,7 +232,7 @@ function Quote() {
           "Every lap is a commitment.<br />Every race is a statement.<br />
           I don't just want to compete — I want to dominate."
         </blockquote>
-        <cite className="pullquote__attr">— Ethan Lenno</cite>
+        <cite className="pullquote__attr">— Ethan Lennon</cite>
       </div>
     </section>
   )
@@ -357,7 +357,7 @@ function Footer() {
     <footer className="footer">
       <div className="footer__top">
         <a href="#hero" className="footer__brand" aria-label="Back to top">
-          <span className="footer__name">Ethan Lenno</span>
+          <span className="footer__name">Ethan Lennon</span>
           <span className="footer__tag">Racing Driver</span>
         </a>
         <nav className="footer__nav" aria-label="Footer">
@@ -370,7 +370,7 @@ function Footer() {
         </div>
       </div>
       <div className="footer__bottom">
-        <span className="footer__copy">© 2024 Ethan Lenno. All rights reserved.</span>
+        <span className="footer__copy">© 2024 Ethan Lennon. All rights reserved.</span>
         <span className="footer__made">Designed for speed.</span>
       </div>
     </footer>
