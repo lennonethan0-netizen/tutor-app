@@ -94,54 +94,17 @@ function calcATS(job, cv) {
   return { score, matched: matched.slice(0,18), missing: missing.slice(0,18), total: jobToks.length }
 }
 
-// ── Claude API ────────────────────────────────────────────────────────
-async function callClaude(apiKey, systemPrompt, userMessage) {
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
+// ── Server API calls ────────────────────────────────────────────────
+async function serverCall(endpoint, body) {
+  const res = await fetch(`/api/${endpoint}`, {
     method: 'POST',
-    headers: {
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'content-type': 'application/json',
-      'anthropic-dangerous-allow-browser': 'true',
-    },
-    body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 3000,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userMessage }],
-    }),
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
   })
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error(err?.error?.message || `API error ${res.status}`)
-  }
   const data = await res.json()
-  return data.content[0].text
+  if (!res.ok) throw new Error(data.error || `Error ${res.status}`)
+  return data.result
 }
-
-const CV_SYSTEM = `You are an expert CV writer and ATS optimisation specialist with 15 years of experience. Your job is to rewrite CVs to maximise ATS pass rates while maintaining authenticity and professionalism.
-
-Rules:
-- NEVER invent skills, experience, or qualifications the candidate doesn't have
-- Rewrite their EXISTING experience using keywords from the job description
-- Use strong action verbs: led, delivered, built, designed, optimised, increased, reduced
-- Include measurable achievements where the candidate mentions them
-- Structure: Contact Info placeholder → Professional Summary (3-4 sentences) → Key Skills (8-12 bullet points) → Work Experience → Education
-- Bold section headings using markdown (## for sections)
-- Keep it to 1-2 pages equivalent
-- Use the exact keywords and phrases from the job description naturally throughout
-- Return ONLY the CV content, no commentary`
-
-const COVER_SYSTEM = `You are an expert cover letter writer. Write compelling, personalised cover letters that complement an optimised CV.
-
-Rules:
-- 3-4 short paragraphs
-- Opening: show genuine interest and mention the role/company specifically
-- Middle: highlight 2-3 specific achievements from the CV that match the role
-- Closing: confident call to action
-- Tone: professional but human, not robotic
-- DO NOT use clichés like "I am writing to apply for..." or "I believe I would be a great fit"
-- Return ONLY the cover letter, no commentary or subject line`
 
 // ── Export PDF ────────────────────────────────────────────────────────
 function exportPDF(content, type = 'CV') {
@@ -175,29 +138,10 @@ export default function Tool({ onBack }) {
   const [optimizedCV, setOptimizedCV] = useState('')
   const [coverLetter, setCoverLetter] = useState('')
   const [showCover, setShowCover] = useState(false)
-  const [loading, setLoading] = useState('')       // '' | 'cv' | 'cover'
+  const [loading, setLoading] = useState('')
   const [error, setError] = useState('')
   const [copied, setCopied] = useState('')
-  const [apiKey, setApiKey] = useState(() => localStorage.getItem('cvapp_key') || '')
-  const [showKeyPanel, setShowKeyPanel] = useState(false)
-  const [keyInput, setKeyInput] = useState('')
   const resultRef = useRef(null)
-
-  function saveKey() {
-    const k = keyInput.trim()
-    if (!k.startsWith('sk-ant-')) { setError('API key should start with sk-ant-'); return }
-    localStorage.setItem('cvapp_key', k)
-    setApiKey(k)
-    setShowKeyPanel(false)
-    setKeyInput('')
-    setError('')
-  }
-
-  function removeKey() {
-    localStorage.removeItem('cvapp_key')
-    setApiKey('')
-    setShowKeyPanel(false)
-  }
 
   function handleAnalyse() {
     if (!jobDesc.trim() || !cvText.trim()) { setError('Please fill in both the job description and your CV.'); return }
@@ -209,13 +153,11 @@ export default function Tool({ onBack }) {
   }
 
   async function handleOptimise() {
-    if (!apiKey) { setShowKeyPanel(true); return }
     setLoading('cv')
     setError('')
     setStep('optimising')
     try {
-      const prompt = `JOB DESCRIPTION:\n${jobDesc}\n\nCANDIDATE'S CURRENT CV/EXPERIENCE:\n${cvText}\n\nPlease rewrite this CV optimised for the job description above.`
-      const result = await callClaude(apiKey, CV_SYSTEM, prompt)
+      const result = await serverCall('optimize', { jobDesc, cvText })
       setOptimizedCV(result)
       const newAts = calcATS(jobDesc, result)
       setAts(newAts)
@@ -229,13 +171,11 @@ export default function Tool({ onBack }) {
   }
 
   async function handleCoverLetter() {
-    if (!apiKey) { setShowKeyPanel(true); return }
     if (coverLetter) { setShowCover(true); return }
     setLoading('cover')
     setError('')
     try {
-      const prompt = `JOB DESCRIPTION:\n${jobDesc}\n\nOPTIMISED CV:\n${optimizedCV || cvText}\n\nWrite a tailored cover letter for this application.`
-      const result = await callClaude(apiKey, COVER_SYSTEM, prompt)
+      const result = await serverCall('cover', { jobDesc, cvText: optimizedCV || cvText })
       setCoverLetter(result)
       setShowCover(true)
     } catch (e) {
@@ -252,7 +192,6 @@ export default function Tool({ onBack }) {
   }
 
   const canAnalyse = jobDesc.trim().length > 50 && cvText.trim().length > 50
-  const hasKey = !!apiKey
 
   return (
     <div style={{ minHeight:'100vh', background:'var(--bg)' }}>
@@ -269,42 +208,9 @@ export default function Tool({ onBack }) {
             </div>
             <span style={{ fontWeight:800, fontSize:16 }}>CV<span className="grad">app</span></span>
           </div>
-          <button
-            className={`btn-secondary`}
-            style={{ padding:'7px 14px', fontSize:13, borderColor: hasKey ? 'rgba(16,185,129,0.4)' : 'var(--border-2)', color: hasKey ? '#34d399' : 'var(--text-muted)' }}
-            onClick={() => { setShowKeyPanel(!showKeyPanel); setError('') }}
-          >
-            <KeyIcon />
-            {hasKey ? 'API Key ✓' : 'Add API Key'}
-          </button>
+          <div style={{ width:80 }} />
         </div>
       </div>
-
-      {/* ── API Key panel ── */}
-      {showKeyPanel && (
-        <div className="fade-in" style={{ background:'var(--surface)', borderBottom:'1px solid var(--border)', padding:'20px 24px' }}>
-          <div className="container-sm">
-            <p style={{ fontSize:13, color:'var(--text-muted)', marginBottom:12, lineHeight:1.6 }}>
-              Add your <strong style={{color:'var(--text)'}}>Anthropic API key</strong> to unlock AI CV rewrites and cover letters.
-              Get one free at <a href="https://console.anthropic.com" target="_blank" rel="noopener" style={{color:'#818cf8'}}>console.anthropic.com</a>.
-              Your key is stored locally in your browser only — never sent to our servers.
-            </p>
-            <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
-              <input
-                className="field"
-                style={{ flex:1, minWidth:240, resize:'none', height:'auto', padding:'10px 14px' }}
-                type="password"
-                placeholder="sk-ant-api03-..."
-                value={keyInput}
-                onChange={e => setKeyInput(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && saveKey()}
-              />
-              <button className="btn-primary" style={{ padding:'10px 18px', fontSize:14 }} onClick={saveKey}>Save key</button>
-              {hasKey && <button className="btn-secondary" style={{ padding:'10px 18px', fontSize:14 }} onClick={removeKey}>Remove</button>}
-            </div>
-          </div>
-        </div>
-      )}
 
       <div className="container" style={{ padding:'40px 24px 80px' }}>
 
@@ -455,29 +361,12 @@ export default function Tool({ onBack }) {
             {step === 'scored' && (
               <div className="card" style={{ background:'linear-gradient(135deg,rgba(99,102,241,0.12),rgba(139,92,246,0.08))', borderColor:'rgba(99,102,241,0.3)', display:'flex', flexWrap:'wrap', alignItems:'center', justifyContent:'space-between', gap:20 }}>
                 <div>
-                  <div style={{ fontWeight:700, fontSize:17, marginBottom:4 }}>
-                    {hasKey ? 'Optimise your CV with Claude AI' : 'Add an API key to unlock AI optimisation'}
-                  </div>
-                  <div style={{ color:'var(--text-muted)', fontSize:14 }}>
-                    {hasKey
-                      ? 'Rewrite your CV using ATS-optimised language tailored to this job — in 30 seconds.'
-                      : 'Free: ATS score + keywords. Add your Anthropic API key for AI rewrites + cover letters.'}
-                  </div>
+                  <div style={{ fontWeight:700, fontSize:17, marginBottom:4 }}>Optimise your CV with Claude AI</div>
+                  <div style={{ color:'var(--text-muted)', fontSize:14 }}>Rewrite your CV using ATS-optimised language tailored to this job — in 30 seconds.</div>
                 </div>
-                <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
-                  {!hasKey && (
-                    <button className="btn-secondary" onClick={() => setShowKeyPanel(true)}>
-                      <KeyIcon /> Add API Key
-                    </button>
-                  )}
-                  <button
-                    className="btn-primary"
-                    onClick={handleOptimise}
-                    disabled={!hasKey || loading === 'cv'}
-                  >
-                    {loading === 'cv' ? <><div className="spinner" /> Optimising…</> : <><SparkleIcon /> Optimise My CV</>}
-                  </button>
-                </div>
+                <button className="btn-primary" onClick={handleOptimise} disabled={loading === 'cv'}>
+                  {loading === 'cv' ? <><div className="spinner" /> Optimising…</> : <><SparkleIcon /> Optimise My CV</>}
+                </button>
               </div>
             )}
 
@@ -536,14 +425,6 @@ export default function Tool({ onBack }) {
           </div>
         )}
 
-        {/* ── Pro tip ── */}
-        {step === 'input' && (
-          <div style={{ marginTop:32, padding:'16px 20px', borderRadius:12, background:'var(--surface)', border:'1px solid var(--border)', fontSize:13, color:'var(--text-muted)', lineHeight:1.6 }}>
-            <strong style={{color:'var(--text)'}}>💡 Pro tip:</strong> Your ATS score is free — no API key needed.
-            Add your Anthropic API key (via the button above) to unlock AI rewrites and cover letter generation.
-            Keys are stored only in your browser and used directly with Anthropic — we never see them.
-          </div>
-        )}
 
       </div>
     </div>
