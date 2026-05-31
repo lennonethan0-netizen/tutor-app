@@ -126,6 +126,76 @@ function CVPreview({ content }) {
   return <div className="cv-doc" dangerouslySetInnerHTML={{ __html: mdToHtml(content) }} />
 }
 
+// ── Recommendation Cards ──────────────────────────────────────────────
+function parseRecommendations(text) {
+  // Split on --- separators, filter blanks
+  const blocks = text.split(/\n?---+\n?/).map(b => b.trim()).filter(Boolean)
+  return blocks.map(block => {
+    const sectionMatch = block.match(/\*\*(.+?)\*\*/)
+    const originalMatch = block.match(/Original:\s*"?(.+?)"?\s*(?:\n|$)/i)
+    const problemMatch  = block.match(/Problem:\s*(.+?)(?:\n|$)/i)
+    const improvedMatch = block.match(/Improved:\s*"?(.+?)"?\s*$/is)
+    if (!sectionMatch && !improvedMatch) return null
+    return {
+      section:  sectionMatch?.[1]  || 'Suggestion',
+      original: originalMatch?.[1] || null,
+      problem:  problemMatch?.[1]  || null,
+      improved: improvedMatch?.[1]?.trim() || null,
+    }
+  }).filter(Boolean)
+}
+
+function Recommendations({ content, onCopy, copied }) {
+  const recs = parseRecommendations(content)
+  if (recs.length === 0) {
+    // Fallback: just render as plain text if parsing fails
+    return <div style={{ fontSize:14, color:'var(--text)', lineHeight:1.8, whiteSpace:'pre-wrap' }}>{content}</div>
+  }
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+      {recs.map((r, i) => (
+        <div key={i} style={{ border:'1px solid var(--border-2)', borderRadius:12, overflow:'hidden' }}>
+          {/* Header */}
+          <div style={{ background:'var(--surface-2)', padding:'10px 16px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+            <span style={{ fontWeight:700, fontSize:13, color:'var(--text)', textTransform:'uppercase', letterSpacing:'0.05em' }}>
+              {r.section}
+            </span>
+            <span style={{ fontSize:11, color:'var(--text-muted)', fontWeight:600 }}>#{i + 1}</span>
+          </div>
+          <div style={{ padding:'14px 16px', display:'flex', flexDirection:'column', gap:12 }}>
+            {/* Original */}
+            {r.original && (
+              <div style={{ background:'rgba(239,68,68,0.07)', border:'1px solid rgba(239,68,68,0.2)', borderRadius:8, padding:'10px 14px' }}>
+                <div style={{ fontSize:11, fontWeight:700, color:'#f87171', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:5 }}>What you wrote</div>
+                <div style={{ fontSize:13, color:'rgba(255,255,255,0.7)', fontStyle:'italic' }}>"{r.original}"</div>
+              </div>
+            )}
+            {/* Problem */}
+            {r.problem && (
+              <div style={{ fontSize:13, color:'var(--text-muted)', lineHeight:1.6 }}>{r.problem}</div>
+            )}
+            {/* Improved */}
+            {r.improved && (
+              <div style={{ background:'rgba(16,185,129,0.08)', border:'1px solid rgba(16,185,129,0.25)', borderRadius:8, padding:'10px 14px' }}>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:5 }}>
+                  <div style={{ fontSize:11, fontWeight:700, color:'#34d399', textTransform:'uppercase', letterSpacing:'0.06em' }}>Say this instead</div>
+                  <button
+                    onClick={() => onCopy(r.improved, `rec-${i}`)}
+                    style={{ background:'none', border:'none', cursor:'pointer', color:'#34d399', fontSize:12, display:'flex', alignItems:'center', gap:4, padding:'2px 6px', borderRadius:4, transition:'background 0.15s' }}
+                  >
+                    {copied === `rec-${i}` ? '✓ Copied' : 'Copy'}
+                  </button>
+                </div>
+                <div style={{ fontSize:13, color:'rgba(255,255,255,0.85)', lineHeight:1.6 }}>"{r.improved}"</div>
+              </div>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // ── Export PDF ────────────────────────────────────────────────────────
 function exportPDF(content, type = 'CV') {
   const w = window.open('', '_blank')
@@ -211,7 +281,6 @@ export default function Tool({ onBack }) {
     try {
       const result = await serverCall('optimize', { cvText })
       setImprovedCV(result)
-      setScoreData(calcScore(result))
       setStep('result')
     } catch (e) {
       setError(e.message)
@@ -244,8 +313,8 @@ export default function Tool({ onBack }) {
   const rateSteps = [
     { label:'Input', key:'input' },
     { label:'CV Score', key:'scored' },
-    { label:'Improving', key:'improving' },
-    { label:'Result', key:'result' },
+    { label:'Analysing', key:'improving' },
+    { label:'Recommendations', key:'result' },
   ]
   const genSteps = [
     { label:'Your Experience', key:'input' },
@@ -328,13 +397,13 @@ export default function Tool({ onBack }) {
               </div>
             )}
 
-            {/* Improving spinner */}
+            {/* Analysing spinner */}
             {step === 'improving' && (
               <div className="fade-in card" style={{ display:'flex', alignItems:'center', gap:16, padding:'24px 28px', marginTop:8 }}>
                 <div className="spinner" />
                 <div>
-                  <div style={{ fontWeight:600, marginBottom:4 }}>Improving your CV with Claude AI...</div>
-                  <div style={{ fontSize:13, color:'var(--text-muted)' }}>Rewriting with professional language and strong action verbs. Takes 15–30 seconds.</div>
+                  <div style={{ fontWeight:600, marginBottom:4 }}>Analysing your CV with Claude AI...</div>
+                  <div style={{ fontSize:13, color:'var(--text-muted)' }}>Finding exactly what to change and how to say it better. Takes 15–30 seconds.</div>
                 </div>
               </div>
             )}
@@ -357,7 +426,7 @@ export default function Tool({ onBack }) {
                         </div>
                       )}
                       {step === 'result' && (
-                        <div style={{ fontSize:13, color:'#34d399', fontWeight:600 }}>✓ Improved CV generated</div>
+                        <div style={{ fontSize:13, color:'#34d399', fontWeight:600 }}>✓ Recommendations ready</div>
                       )}
                     </div>
                   </div>
@@ -413,37 +482,27 @@ export default function Tool({ onBack }) {
                   </div>
                 </div>
 
-                {/* Improve CTA */}
+                {/* Get Recommendations CTA */}
                 {step === 'scored' && (
                   <div className="card" style={{ background:'linear-gradient(135deg,rgba(99,102,241,0.12),rgba(139,92,246,0.08))', borderColor:'rgba(99,102,241,0.3)', display:'flex', flexWrap:'wrap', alignItems:'center', justifyContent:'space-between', gap:20 }}>
                     <div>
-                      <div style={{ fontWeight:700, fontSize:17, marginBottom:4 }}>Improve your CV with Claude AI</div>
-                      <div style={{ color:'var(--text-muted)', fontSize:14 }}>Rewrite your CV using professional language and strong action verbs — in 30 seconds.</div>
+                      <div style={{ fontWeight:700, fontSize:17, marginBottom:4 }}>Get AI recommendations</div>
+                      <div style={{ color:'var(--text-muted)', fontSize:14 }}>Claude will read your CV and tell you exactly what to change — with specific better phrasings you can copy.</div>
                     </div>
                     <button className="btn-primary" onClick={handleImprove} disabled={loading}>
-                      {loading ? <><div className="spinner" /> Improving…</> : <><SparkleIcon /> Improve My CV</>}
+                      {loading ? <><div className="spinner" /> Analysing…</> : <><SparkleIcon /> Get Recommendations</>}
                     </button>
                   </div>
                 )}
 
-                {/* Improved CV output */}
+                {/* Recommendations output */}
                 {step === 'result' && improvedCV && (
                   <div className="card" style={{ marginTop:4 }}>
-                    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16, flexWrap:'wrap', gap:12 }}>
-                      <div>
-                        <div style={{ fontWeight:700, fontSize:16 }}>Improved CV</div>
-                        <div style={{ fontSize:13, color:'var(--text-muted)', marginTop:2 }}>Rewritten with professional language and strong action verbs</div>
-                      </div>
-                      <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-                        <button className="btn-secondary" style={{ padding:'8px 14px', fontSize:13 }} onClick={() => copy(improvedCV, 'cv')}>
-                          {copied === 'cv' ? <><CheckDone /> Copied!</> : <><CopyIcon /> Copy</>}
-                        </button>
-                        <button className="btn-secondary" style={{ padding:'8px 14px', fontSize:13 }} onClick={() => exportPDF(improvedCV, 'CV')}>
-                          <DownloadIcon /> Export PDF
-                        </button>
-                      </div>
+                    <div style={{ marginBottom:20 }}>
+                      <div style={{ fontWeight:700, fontSize:16, marginBottom:4 }}>CV Recommendations</div>
+                      <div style={{ fontSize:13, color:'var(--text-muted)' }}>Specific changes with better phrasings — copy each one directly into your CV</div>
                     </div>
-                    <CVPreview content={improvedCV} />
+                    <Recommendations content={improvedCV} onCopy={copy} copied={copied} />
                   </div>
                 )}
               </div>

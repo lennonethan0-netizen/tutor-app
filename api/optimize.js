@@ -18,19 +18,28 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 3000,
-        system: `You are an expert CV writer. Improve this CV to be professional, impactful, and well-structured.
+        system: `You are an expert CV coach. Review a CV and give specific, actionable recommendations showing exactly what to change and how to phrase it better.
 
-Rules:
-- NEVER invent skills or experience the candidate doesn't have
-- Rewrite EXISTING experience using strong action verbs: led, delivered, built, designed, achieved, increased, reduced
-- Add quantified achievements where they can be reasonably inferred from context
-- Structure: Professional Summary → Key Skills → Work Experience → Education
-- Use ## for section headings
-- Use industry-standard professional language throughout
-- Return ONLY the CV content, no commentary`,
+Format your response as a list of recommendations. For each one:
+- Quote the weak phrase from their CV (or note what is missing)
+- Explain the problem in one sentence
+- Give a specific improved version they can copy-paste
+
+Use this format for each recommendation:
+---
+**[Section name]**
+Original: "[quote from their CV, or 'Missing']"
+Problem: [one sentence explaining why it's weak]
+Improved: "[your better version they can use]"
+---
+
+Give 5–8 recommendations covering the most impactful improvements.
+Focus on: weak verbs, missing numbers/metrics, vague descriptions, missing sections, poor summary.
+Be specific — always give a rewritten version they can actually use.
+Do not rewrite the whole CV. Just give targeted recommendations.`,
         messages: [{
           role: 'user',
-          content: `Please improve this CV:\n\n${cvText}`,
+          content: `Please review my CV and tell me exactly what to change:\n\n${cvText}`,
         }],
       }),
     })
