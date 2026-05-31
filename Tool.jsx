@@ -28,22 +28,21 @@ const CheckDone = () => (
 )
 
 // ── Score Ring ────────────────────────────────────────────────────────
-function ScoreRing({ score, animate, label = 'ATS Score', goodLabel = 'Strong match', midLabel = 'Needs work', badLabel = 'Poor match' }) {
+function ScoreRing({ score, animate }) {
   const [display, setDisplay] = useState(animate ? 0 : score)
   const r = 58
   const circ = 2 * Math.PI * r
   const offset = circ - (display / 100) * circ
   const color = display >= 70 ? '#10b981' : display >= 40 ? '#f59e0b' : '#ef4444'
-  const qualLabel = display >= 70 ? goodLabel : display >= 40 ? midLabel : badLabel
+  const label = display >= 70 ? 'Strong CV' : display >= 40 ? 'Needs work' : 'Weak CV'
 
   useEffect(() => {
     if (!animate) { setDisplay(score); return }
     let start = null
-    const duration = 1400
     const to = score
     const step = (ts) => {
       if (!start) start = ts
-      const p = Math.min((ts - start) / duration, 1)
+      const p = Math.min((ts - start) / 1400, 1)
       const ease = 1 - Math.pow(1 - p, 3)
       setDisplay(Math.round(to * ease))
       if (p < 1) requestAnimationFrame(step)
@@ -57,40 +56,24 @@ function ScoreRing({ score, animate, label = 'ATS Score', goodLabel = 'Strong ma
         <svg width="148" height="148" style={{ transform:'rotate(-90deg)' }}>
           <circle cx="74" cy="74" r={r} fill="none" strokeWidth="10" stroke="var(--surface-2)" />
           <circle cx="74" cy="74" r={r} fill="none" strokeWidth="10"
-            stroke={color}
-            strokeDasharray={circ}
-            strokeDashoffset={offset}
-            strokeLinecap="round"
-            style={{ transition:'stroke-dashoffset 0.05s linear' }}
+            stroke={color} strokeDasharray={circ} strokeDashoffset={offset}
+            strokeLinecap="round" style={{ transition:'stroke-dashoffset 0.05s linear' }}
           />
         </svg>
         <div style={{ position:'absolute', textAlign:'center' }}>
           <div style={{ fontSize:32, fontWeight:900, color, letterSpacing:'-0.02em' }}>{display}%</div>
-          <div style={{ fontSize:11, color:'var(--text-muted)', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.06em' }}>{label}</div>
+          <div style={{ fontSize:11, color:'var(--text-muted)', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.06em' }}>CV Score</div>
         </div>
       </div>
-      <div style={{ fontSize:14, fontWeight:600, color }}>{qualLabel}</div>
+      <div style={{ fontSize:14, fontWeight:600, color }}>{label}</div>
     </div>
   )
 }
 
-// ── ATS Calculator (job desc vs CV keyword match) ─────────────────────
-const STOP = new Set(['the','a','an','and','or','but','in','on','at','to','for','of','with','by','from','is','are','was','were','be','been','have','has','had','do','does','did','will','would','could','should','may','might','this','that','these','those','their','they','our','your','all','as','if','so','we','you','he','she','it','its','not','no','can','also','into','about','than','then','when','how','what','who','which','more','some','such','each','both','very','just','well','even','after','before','over','under','between','through','during','within','without','against','along','following','across','behind','beyond','plus','except','up','out','around','down','off','above','below','use','using','used','make','making','made','take','taking','taken','need','needs','required','must','shall','working','work','works','team','teams','role','based','including','include','includes','able','ensure','ensuring','manage','managing','across','own','new','good','high','level','strong','key','experience','experiences','experienced'])
-
-function calcATS(job, cv) {
-  const tok = (t) => [...new Set(t.toLowerCase().replace(/[^\w\s]/g,' ').split(/\s+/).filter(w => w.length > 2 && !STOP.has(w)))]
-  const jobToks = tok(job)
-  const cvLower = cv.toLowerCase()
-  const matched = jobToks.filter(t => cvLower.includes(t))
-  const missing = jobToks.filter(t => !cvLower.includes(t))
-  const score = jobToks.length > 0 ? Math.min(100, Math.round((matched.length / jobToks.length) * 100)) : 0
-  return { type:'ats', score, matched: matched.slice(0,18), missing: missing.slice(0,18), total: jobToks.length }
-}
-
-// ── General CV Quality Score (no job desc needed) ─────────────────────
+// ── CV Quality Score ──────────────────────────────────────────────────
 const ACTION_VERBS = ['led','built','designed','developed','managed','created','improved','increased','reduced','launched','delivered','implemented','achieved','drove','coordinated','established','automated','deployed','founded','grew','trained','mentored','negotiated','secured','generated','streamlined','spearheaded','revamped','accelerated','optimised','optimized']
 
-function calcGeneralScore(cv) {
+function calcScore(cv) {
   const cvLower = cv.toLowerCase()
   const words = cv.trim().split(/\s+/).length
   let score = 0
@@ -110,7 +93,7 @@ function calcGeneralScore(cv) {
   else if (words >= 150 && words <= 1200) score += 12
   else if (words >= 80) score += 5
 
-  return { type:'general', score: Math.min(score, 100), foundSections, foundVerbs: foundVerbs.slice(0,8), quants: quants.length, words }
+  return { score: Math.min(score, 100), foundSections, foundVerbs: foundVerbs.slice(0, 8), quants: quants.length, words }
 }
 
 // ── Server API calls ──────────────────────────────────────────────────
@@ -133,18 +116,14 @@ function mdToHtml(content) {
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
     .replace(/^- (.+)$/gm, '<li>$1</li>')
-    .replace(/(<li>.*<\/li>)(\n<li>)/g, '$1$2')
     .replace(/(<li>[\s\S]+?<\/li>)(?!\n<li>)/g, '<ul>$1</ul>')
     .replace(/\n\n/g, '</p><p>')
-    .replace(/^(?!<[hup]|<li)(.+)$/gm, '$1')
     .replace(/\n/g, '<br/>')
 }
 
-// ── CV Preview (rendered markdown document) ───────────────────────────
+// ── CV Preview ────────────────────────────────────────────────────────
 function CVPreview({ content }) {
-  return (
-    <div className="cv-doc" dangerouslySetInnerHTML={{ __html: mdToHtml(content) }} />
-  )
+  return <div className="cv-doc" dangerouslySetInnerHTML={{ __html: mdToHtml(content) }} />
 }
 
 // ── Export PDF ────────────────────────────────────────────────────────
@@ -161,9 +140,9 @@ function exportPDF(content, type = 'CV') {
 <html><head><meta charset="UTF-8"><title>${type}</title>
 <style>
   body { font-family: 'Calibri', Arial, sans-serif; font-size: 11pt; line-height: 1.5; color: #000; padding: 40px; max-width: 700px; margin: 0 auto; }
-  h2 { font-size: 13pt; font-weight: 700; border-bottom: 1px solid #333; padding-bottom: 3px; margin: 16px 0 8px; }
-  li { margin: 3px 0; }
-  ul { padding-left: 20px; }
+  h1 { font-size: 18pt; font-weight: 700; margin-bottom: 4px; }
+  h2 { font-size: 11pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid #333; padding-bottom: 3px; margin: 16px 0 8px; }
+  li { margin: 3px 0; } ul { padding-left: 20px; }
   @media print { body { padding: 20px; } }
 </style></head>
 <body>${md}</body></html>`)
@@ -173,12 +152,11 @@ function exportPDF(content, type = 'CV') {
 
 // ── Step Indicator ────────────────────────────────────────────────────
 function StepIndicator({ steps, current }) {
+  const cur = steps.findIndex(x => x.key === current)
   return (
     <div style={{ display:'flex', alignItems:'center', gap:0, marginBottom:40, overflowX:'auto', paddingBottom:4 }}>
       {steps.map((s, i, arr) => {
-        const cur = steps.findIndex(x => x.key === current)
-        const si = i
-        const status = si < cur ? 'done' : si === cur ? 'active' : 'pending'
+        const status = i < cur ? 'done' : i === cur ? 'active' : 'pending'
         return (
           <div key={s.key} style={{ display:'flex', alignItems:'center' }}>
             <div style={{ display:'flex', alignItems:'center', gap:8, whiteSpace:'nowrap' }}>
@@ -186,7 +164,7 @@ function StepIndicator({ steps, current }) {
               <span style={{ fontSize:13, fontWeight:600, color: status === 'active' ? 'var(--text)' : status === 'done' ? '#34d399' : 'var(--text-muted)' }}>{s.label}</span>
             </div>
             {i < arr.length - 1 && (
-              <div style={{ width:32, height:1, background: si < cur ? '#10b981' : 'var(--border-2)', margin:'0 8px', flexShrink:0 }} />
+              <div style={{ width:32, height:1, background: i < cur ? '#10b981' : 'var(--border-2)', margin:'0 8px', flexShrink:0 }} />
             )}
           </div>
         )
@@ -199,70 +177,47 @@ function StepIndicator({ steps, current }) {
 export default function Tool({ onBack }) {
   const [mode, setMode] = useState('rate')  // 'rate' | 'generate'
 
-  // Rate mode state
-  const [step, setStep] = useState('input')  // input | scored | optimising | result
-  const [jobDesc, setJobDesc] = useState('')
+  // Rate mode
+  const [step, setStep] = useState('input')  // input | scored | improving | result
   const [cvText, setCvText] = useState('')
   const [scoreData, setScoreData] = useState(null)
-  const [optimizedCV, setOptimizedCV] = useState('')
-  const [coverLetter, setCoverLetter] = useState('')
-  const [showCover, setShowCover] = useState(false)
+  const [improvedCV, setImprovedCV] = useState('')
 
-  // Generate mode state
+  // Generate mode
   const [genInput, setGenInput] = useState('')
   const [genStep, setGenStep] = useState('input')  // input | generating | result
   const [generatedCV, setGeneratedCV] = useState('')
 
   // Shared
-  const [loading, setLoading] = useState('')
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [copied, setCopied] = useState('')
   const resultRef = useRef(null)
 
-  function switchMode(m) {
-    setMode(m)
-    setError('')
-  }
+  function switchMode(m) { setMode(m); setError('') }
 
-  function handleAnalyse() {
-    if (cvText.trim().length < 50) { setError('Please enter at least 50 characters for your CV.'); return }
+  function handleRate() {
+    if (cvText.trim().length < 50) { setError('Please paste your CV (at least 50 characters).'); return }
     setError('')
-    const result = jobDesc.trim().length > 20 ? calcATS(jobDesc, cvText) : calcGeneralScore(cvText)
-    setScoreData(result)
+    setScoreData(calcScore(cvText))
     setStep('scored')
     setTimeout(() => resultRef.current?.scrollIntoView({ behavior:'smooth', block:'start' }), 100)
   }
 
-  async function handleOptimise() {
-    setLoading('cv')
+  async function handleImprove() {
+    setLoading(true)
     setError('')
-    setStep('optimising')
+    setStep('improving')
     try {
-      const result = await serverCall('optimize', { jobDesc: jobDesc.trim() || undefined, cvText })
-      setOptimizedCV(result)
-      const newScore = jobDesc.trim().length > 20 ? calcATS(jobDesc, result) : calcGeneralScore(result)
-      setScoreData(newScore)
+      const result = await serverCall('optimize', { cvText })
+      setImprovedCV(result)
+      setScoreData(calcScore(result))
       setStep('result')
     } catch (e) {
       setError(e.message)
       setStep('scored')
     } finally {
-      setLoading('')
-    }
-  }
-
-  async function handleCoverLetter() {
-    if (coverLetter) { setShowCover(true); return }
-    setLoading('cover')
-    setError('')
-    try {
-      const result = await serverCall('cover', { jobDesc, cvText: optimizedCV || cvText })
-      setCoverLetter(result)
-      setShowCover(true)
-    } catch (e) {
-      setError(e.message)
-    } finally {
-      setLoading('')
+      setLoading(false)
     }
   }
 
@@ -286,17 +241,12 @@ export default function Tool({ onBack }) {
     setTimeout(() => setCopied(''), 2000)
   }
 
-  const canAnalyse = cvText.trim().length > 50
-  const hasJobDesc = jobDesc.trim().length > 20
-  const isATS = scoreData?.type === 'ats'
-
   const rateSteps = [
     { label:'Input', key:'input' },
-    { label: isATS ? 'ATS Score' : 'CV Score', key:'scored' },
-    { label:'Optimise', key:'optimising' },
+    { label:'CV Score', key:'scored' },
+    { label:'Improving', key:'improving' },
     { label:'Result', key:'result' },
   ]
-
   const genSteps = [
     { label:'Your Experience', key:'input' },
     { label:'Generating', key:'generating' },
@@ -326,20 +276,13 @@ export default function Tool({ onBack }) {
 
         {/* ── Mode Toggle ── */}
         <div className="no-print" style={{ display:'flex', gap:4, background:'var(--surface-2)', borderRadius:12, padding:4, width:'fit-content', marginBottom:32 }}>
-          {[
-            { key:'rate', label:'Rate My CV' },
-            { key:'generate', label:'Generate CV' },
-          ].map(m => (
-            <button
-              key={m.key}
-              onClick={() => switchMode(m.key)}
-              style={{
-                padding:'8px 22px', borderRadius:9, fontSize:14, fontWeight:600, border:'none', cursor:'pointer',
-                background: mode === m.key ? 'linear-gradient(135deg,#6366f1,#8b5cf6)' : 'transparent',
-                color: mode === m.key ? '#fff' : 'var(--text-muted)',
-                transition:'all 0.2s',
-              }}
-            >
+          {[{ key:'rate', label:'Rate My CV' }, { key:'generate', label:'Generate CV' }].map(m => (
+            <button key={m.key} onClick={() => switchMode(m.key)} style={{
+              padding:'8px 22px', borderRadius:9, fontSize:14, fontWeight:600, border:'none', cursor:'pointer',
+              background: mode === m.key ? 'linear-gradient(135deg,#6366f1,#8b5cf6)' : 'transparent',
+              color: mode === m.key ? '#fff' : 'var(--text-muted)',
+              transition:'all 0.2s',
+            }}>
               {m.label}
             </button>
           ))}
@@ -353,72 +296,45 @@ export default function Tool({ onBack }) {
         )}
 
         {/* ══════════════════════════════════════════ */}
-        {/* RATE MODE */}
+        {/* RATE MODE                                  */}
         {/* ══════════════════════════════════════════ */}
         {mode === 'rate' && (
           <>
             <StepIndicator steps={rateSteps} current={step} />
 
-            {/* Input section */}
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(320px,1fr))', gap:20, marginBottom:24 }}>
-
-              {/* Job description — optional */}
-              <div>
-                <div className="field-label">
-                  Job Description{' '}
-                  <span style={{ fontWeight:400, color:'var(--text-muted)', fontSize:12 }}>(optional — leave blank for a general rating)</span>
-                </div>
-                <textarea
-                  className="field"
-                  rows={12}
-                  placeholder={"Paste a job posting to get a tailored ATS score...\n\nOr leave this blank and we'll rate your CV on its own quality: structure, action verbs, and achievements.\n\nExample:\nWe're looking for a Senior Software Engineer with experience in React, TypeScript, and AWS..."}
-                  value={jobDesc}
-                  onChange={e => setJobDesc(e.target.value)}
-                  disabled={step === 'optimising'}
-                />
-                <div style={{ fontSize:12, color:'var(--text-muted)', marginTop:6 }}>
-                  {jobDesc.length > 0 ? `${jobDesc.length} characters` : 'Leave blank for a general CV quality rating'}
-                </div>
-              </div>
-
-              {/* Current CV */}
-              <div>
-                <div className="field-label">Your CV / Experience</div>
-                <textarea
-                  className="field"
-                  rows={12}
-                  placeholder={"Paste your current CV here, or describe your experience...\n\nExample:\nSoftware Engineer at Acme Corp (2020-2024)\n- Built React dashboard used by 50k users\n- Led migration to TypeScript\n- AWS certified\n\n(Minimum 50 characters to analyse)"}
-                  value={cvText}
-                  onChange={e => setCvText(e.target.value)}
-                  disabled={step === 'optimising'}
-                />
-                <div style={{ fontSize:12, color:'var(--text-muted)', marginTop:6 }}>{cvText.length} characters</div>
-              </div>
+            {/* CV input */}
+            <div style={{ maxWidth:680, marginBottom:24 }}>
+              <div className="field-label">Your CV</div>
+              <textarea
+                className="field"
+                rows={14}
+                placeholder={"Paste your CV here...\n\nExample:\nJane Smith\nSoftware Engineer\n\nExperience\nAcme Corp (2020–2024)\n- Built React dashboard used by 50k users\n- Led migration to TypeScript\n- AWS certified\n\nEducation\nBSc Computer Science, UCT (2016–2020)"}
+                value={cvText}
+                onChange={e => setCvText(e.target.value)}
+                disabled={step === 'improving'}
+              />
+              <div style={{ fontSize:12, color:'var(--text-muted)', marginTop:6 }}>{cvText.length} characters</div>
             </div>
 
-            {/* Analyse button */}
+            {/* Rate button */}
             {(step === 'input' || step === 'scored') && (
               <div style={{ display:'flex', gap:12, flexWrap:'wrap' }}>
-                <button className="btn-primary" onClick={handleAnalyse} disabled={!canAnalyse}>
-                  {step === 'scored' ? 'Re-analyse' : hasJobDesc ? 'Get My ATS Score' : 'Rate My CV'}
+                <button className="btn-primary" onClick={handleRate} disabled={cvText.trim().length < 50}>
+                  {step === 'scored' ? 'Re-rate' : 'Rate My CV'}
                 </button>
-                {!canAnalyse && (
-                  <span style={{ fontSize:13, color:'var(--text-muted)', alignSelf:'center' }}>
-                    Add your CV to continue
-                  </span>
+                {cvText.trim().length < 50 && (
+                  <span style={{ fontSize:13, color:'var(--text-muted)', alignSelf:'center' }}>Paste your CV to continue</span>
                 )}
               </div>
             )}
 
-            {/* Loading */}
-            {step === 'optimising' && (
+            {/* Improving spinner */}
+            {step === 'improving' && (
               <div className="fade-in card" style={{ display:'flex', alignItems:'center', gap:16, padding:'24px 28px', marginTop:8 }}>
                 <div className="spinner" />
                 <div>
-                  <div style={{ fontWeight:600, marginBottom:4 }}>
-                    {hasJobDesc ? 'Optimising your CV with Claude AI...' : 'Improving your CV with Claude AI...'}
-                  </div>
-                  <div style={{ fontSize:13, color:'var(--text-muted)' }}>Rewriting your experience with professional language. This takes 15–30 seconds.</div>
+                  <div style={{ fontWeight:600, marginBottom:4 }}>Improving your CV with Claude AI...</div>
+                  <div style={{ fontSize:13, color:'var(--text-muted)' }}>Rewriting with professional language and strong action verbs. Takes 15–30 seconds.</div>
                 </div>
               </div>
             )}
@@ -430,188 +346,104 @@ export default function Tool({ onBack }) {
 
                   {/* Score card */}
                   <div className="card" style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:24, padding:'32px' }}>
-                    <ScoreRing
-                      score={scoreData.score}
-                      animate={true}
-                      label={isATS ? 'ATS Score' : 'CV Score'}
-                      goodLabel={isATS ? 'Strong match' : 'Strong CV'}
-                      midLabel="Needs work"
-                      badLabel={isATS ? 'Poor match' : 'Weak CV'}
-                    />
+                    <ScoreRing score={scoreData.score} animate={true} />
                     <div style={{ textAlign:'center' }}>
-                      {isATS ? (
-                        <div style={{ fontSize:13, color:'var(--text-muted)', marginBottom:8 }}>
-                          Matched <strong style={{color:'var(--text)'}}>{scoreData.matched.length}</strong> of <strong style={{color:'var(--text)'}}>{scoreData.total}</strong> job keywords
-                        </div>
-                      ) : (
-                        <div style={{ fontSize:13, color:'var(--text-muted)', marginBottom:8 }}>
-                          Based on structure, action verbs &amp; quantified achievements
-                        </div>
-                      )}
+                      <div style={{ fontSize:13, color:'var(--text-muted)', marginBottom:8 }}>
+                        Based on structure, action verbs &amp; achievements
+                      </div>
                       {step === 'scored' && (
                         <div style={{ fontSize:13, color:'var(--text-muted)' }}>
-                          {scoreData.score < 70
-                            ? (isATS ? 'Optimise your CV to significantly improve this score.' : 'AI can rewrite your CV to make it much more impactful.')
-                            : (isATS ? 'Good match! Optimisation can push this higher.' : 'Solid CV! AI can polish it further.')}
+                          {scoreData.score < 70 ? 'AI can rewrite your CV to make it much more impactful.' : 'Solid CV! AI can polish it even further.'}
                         </div>
                       )}
                       {step === 'result' && (
-                        <div style={{ fontSize:13, color:'#34d399', fontWeight:600 }}>
-                          ✓ {isATS ? 'Optimised' : 'Improved'} CV generated
-                        </div>
+                        <div style={{ fontSize:13, color:'#34d399', fontWeight:600 }}>✓ Improved CV generated</div>
                       )}
                     </div>
                   </div>
 
-                  {/* Keywords (ATS) or Quality metrics (general) */}
+                  {/* Quality metrics */}
                   <div className="card" style={{ display:'flex', flexDirection:'column', gap:20 }}>
-                    {isATS ? (
-                      <>
-                        {scoreData.matched.length > 0 && (
-                          <div>
-                            <div style={{ fontSize:12, fontWeight:700, color:'#34d399', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:10 }}>
-                              ✓ Matched keywords ({scoreData.matched.length})
-                            </div>
-                            <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
-                              {scoreData.matched.map(k => <span key={k} className="chip chip-green">{k}</span>)}
-                            </div>
-                          </div>
-                        )}
-                        {scoreData.missing.length > 0 && (
-                          <div>
-                            <div style={{ fontSize:12, fontWeight:700, color:'#f87171', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:10 }}>
-                              ✗ Missing keywords ({scoreData.missing.length})
-                            </div>
-                            <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
-                              {scoreData.missing.map(k => <span key={k} className="chip chip-red">{k}</span>)}
-                            </div>
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      <>
-                        <div>
-                          <div style={{ fontSize:12, fontWeight:700, color:'#34d399', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:10 }}>
-                            CV Analysis
-                          </div>
-                          <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-                            <div style={{ fontSize:13 }}>
-                              <span style={{ color:'var(--text-muted)' }}>Sections found: </span>
-                              <strong style={{ color:'var(--text)' }}>
-                                {scoreData.foundSections.length > 0 ? scoreData.foundSections.join(', ') : 'None detected'}
-                              </strong>
-                            </div>
-                            <div style={{ fontSize:13 }}>
-                              <span style={{ color:'var(--text-muted)' }}>Action verbs: </span>
-                              <strong style={{ color:'var(--text)' }}>
-                                {scoreData.foundVerbs.length > 0 ? scoreData.foundVerbs.join(', ') : 'None detected'}
-                              </strong>
-                            </div>
-                            <div style={{ fontSize:13 }}>
-                              <span style={{ color:'var(--text-muted)' }}>Quantified results: </span>
-                              <strong style={{ color:'var(--text)' }}>
-                                {scoreData.quants > 0 ? `${scoreData.quants} found` : 'None detected'}
-                              </strong>
-                            </div>
-                            <div style={{ fontSize:13 }}>
-                              <span style={{ color:'var(--text-muted)' }}>Word count: </span>
-                              <strong style={{ color:'var(--text)' }}>
-                                {scoreData.words} words
-                              </strong>
-                              {' '}
-                              <span style={{ fontSize:12, color: scoreData.words < 200 ? '#f87171' : scoreData.words > 1000 ? '#f59e0b' : '#34d399' }}>
-                                {scoreData.words < 200 ? '(too short)' : scoreData.words > 1000 ? '(may be long)' : '(good)'}
-                              </span>
-                            </div>
-                          </div>
+                    <div>
+                      <div style={{ fontSize:12, fontWeight:700, color:'#34d399', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:12 }}>
+                        CV Analysis
+                      </div>
+                      <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+                        <div style={{ fontSize:13 }}>
+                          <span style={{ color:'var(--text-muted)' }}>Sections: </span>
+                          <strong style={{ color:'var(--text)' }}>
+                            {scoreData.foundSections.length > 0 ? scoreData.foundSections.join(', ') : 'None detected'}
+                          </strong>
                         </div>
-                        {(scoreData.quants === 0 || scoreData.foundVerbs.length < 4 || scoreData.foundSections.length < 3 || scoreData.words < 200) && (
-                          <div>
-                            <div style={{ fontSize:12, fontWeight:700, color:'#f59e0b', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:10 }}>
-                              Tips to improve
-                            </div>
-                            <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-                              {scoreData.quants === 0 && <div style={{ fontSize:13, color:'var(--text-muted)' }}>• Add numbers to achievements (e.g. "increased sales by 30%")</div>}
-                              {scoreData.foundVerbs.length < 4 && <div style={{ fontSize:13, color:'var(--text-muted)' }}>• Use more action verbs: led, built, delivered, achieved…</div>}
-                              {scoreData.foundSections.length < 3 && <div style={{ fontSize:13, color:'var(--text-muted)' }}>• Add clear headings: Experience, Skills, Education</div>}
-                              {scoreData.words < 200 && <div style={{ fontSize:13, color:'var(--text-muted)' }}>• Expand your CV — aim for 300–700 words</div>}
-                            </div>
-                          </div>
-                        )}
-                      </>
+                        <div style={{ fontSize:13 }}>
+                          <span style={{ color:'var(--text-muted)' }}>Action verbs: </span>
+                          <strong style={{ color:'var(--text)' }}>
+                            {scoreData.foundVerbs.length > 0 ? scoreData.foundVerbs.join(', ') : 'None detected'}
+                          </strong>
+                        </div>
+                        <div style={{ fontSize:13 }}>
+                          <span style={{ color:'var(--text-muted)' }}>Quantified results: </span>
+                          <strong style={{ color:'var(--text)' }}>
+                            {scoreData.quants > 0 ? `${scoreData.quants} found` : 'None detected'}
+                          </strong>
+                        </div>
+                        <div style={{ fontSize:13 }}>
+                          <span style={{ color:'var(--text-muted)' }}>Word count: </span>
+                          <strong style={{ color:'var(--text)' }}>{scoreData.words} words </strong>
+                          <span style={{ fontSize:12, color: scoreData.words < 200 ? '#f87171' : scoreData.words > 1000 ? '#f59e0b' : '#34d399' }}>
+                            {scoreData.words < 200 ? '(too short)' : scoreData.words > 1000 ? '(may be long)' : '(good)'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {(scoreData.quants === 0 || scoreData.foundVerbs.length < 4 || scoreData.foundSections.length < 3 || scoreData.words < 200) && (
+                      <div>
+                        <div style={{ fontSize:12, fontWeight:700, color:'#f59e0b', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:10 }}>
+                          Tips
+                        </div>
+                        <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+                          {scoreData.quants === 0 && <div style={{ fontSize:13, color:'var(--text-muted)' }}>• Add numbers to achievements (e.g. "increased sales by 30%")</div>}
+                          {scoreData.foundVerbs.length < 4 && <div style={{ fontSize:13, color:'var(--text-muted)' }}>• Use more action verbs: led, built, delivered, achieved…</div>}
+                          {scoreData.foundSections.length < 3 && <div style={{ fontSize:13, color:'var(--text-muted)' }}>• Add clear headings: Experience, Skills, Education</div>}
+                          {scoreData.words < 200 && <div style={{ fontSize:13, color:'var(--text-muted)' }}>• Expand your CV — aim for 300–700 words</div>}
+                        </div>
+                      </div>
                     )}
                   </div>
                 </div>
 
-                {/* Optimise CTA */}
+                {/* Improve CTA */}
                 {step === 'scored' && (
                   <div className="card" style={{ background:'linear-gradient(135deg,rgba(99,102,241,0.12),rgba(139,92,246,0.08))', borderColor:'rgba(99,102,241,0.3)', display:'flex', flexWrap:'wrap', alignItems:'center', justifyContent:'space-between', gap:20 }}>
                     <div>
-                      <div style={{ fontWeight:700, fontSize:17, marginBottom:4 }}>
-                        {isATS ? 'Optimise your CV with Claude AI' : 'Improve your CV with Claude AI'}
-                      </div>
-                      <div style={{ color:'var(--text-muted)', fontSize:14 }}>
-                        {isATS
-                          ? 'Rewrite your CV using ATS-optimised language tailored to this job — in 30 seconds.'
-                          : 'Rewrite your CV using professional language and strong action verbs — in 30 seconds.'}
-                      </div>
+                      <div style={{ fontWeight:700, fontSize:17, marginBottom:4 }}>Improve your CV with Claude AI</div>
+                      <div style={{ color:'var(--text-muted)', fontSize:14 }}>Rewrite your CV using professional language and strong action verbs — in 30 seconds.</div>
                     </div>
-                    <button className="btn-primary" onClick={handleOptimise} disabled={loading === 'cv'}>
-                      {loading === 'cv'
-                        ? <><div className="spinner" /> Optimising…</>
-                        : <><SparkleIcon /> {isATS ? 'Optimise My CV' : 'Improve My CV'}</>}
+                    <button className="btn-primary" onClick={handleImprove} disabled={loading}>
+                      {loading ? <><div className="spinner" /> Improving…</> : <><SparkleIcon /> Improve My CV</>}
                     </button>
                   </div>
                 )}
 
-                {/* Optimised/Improved CV output */}
-                {step === 'result' && optimizedCV && (
+                {/* Improved CV output */}
+                {step === 'result' && improvedCV && (
                   <div className="card" style={{ marginTop:4 }}>
                     <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16, flexWrap:'wrap', gap:12 }}>
                       <div>
-                        <div style={{ fontWeight:700, fontSize:16 }}>{isATS ? 'Optimised CV' : 'Improved CV'}</div>
-                        <div style={{ fontSize:13, color:'var(--text-muted)', marginTop:2 }}>
-                          {isATS ? 'Rewritten with ATS-optimised language for this role' : 'Rewritten with professional language and strong action verbs'}
-                        </div>
+                        <div style={{ fontWeight:700, fontSize:16 }}>Improved CV</div>
+                        <div style={{ fontSize:13, color:'var(--text-muted)', marginTop:2 }}>Rewritten with professional language and strong action verbs</div>
                       </div>
                       <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-                        <button className="btn-secondary" style={{ padding:'8px 14px', fontSize:13 }} onClick={() => copy(optimizedCV, 'cv')}>
+                        <button className="btn-secondary" style={{ padding:'8px 14px', fontSize:13 }} onClick={() => copy(improvedCV, 'cv')}>
                           {copied === 'cv' ? <><CheckDone /> Copied!</> : <><CopyIcon /> Copy</>}
                         </button>
-                        <button className="btn-secondary" style={{ padding:'8px 14px', fontSize:13 }} onClick={() => exportPDF(optimizedCV, 'CV')}>
-                          <DownloadIcon /> Export PDF
-                        </button>
-                        {isATS && (
-                          <button className="btn-green" style={{ padding:'8px 16px', fontSize:13 }} onClick={handleCoverLetter} disabled={loading === 'cover'}>
-                            {loading === 'cover'
-                              ? <><div className="spinner" style={{width:14,height:14}} /> Generating…</>
-                              : <><SparkleIcon /> Cover Letter</>}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                    <CVPreview content={optimizedCV} />
-                  </div>
-                )}
-
-                {/* Cover letter output */}
-                {showCover && coverLetter && (
-                  <div className="card fade-up" style={{ marginTop:16 }}>
-                    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16, flexWrap:'wrap', gap:12 }}>
-                      <div>
-                        <div style={{ fontWeight:700, fontSize:16 }}>Cover Letter</div>
-                        <div style={{ fontSize:13, color:'var(--text-muted)', marginTop:2 }}>Tailored to the job description</div>
-                      </div>
-                      <div style={{ display:'flex', gap:8 }}>
-                        <button className="btn-secondary" style={{ padding:'8px 14px', fontSize:13 }} onClick={() => copy(coverLetter, 'cover')}>
-                          {copied === 'cover' ? <><CheckDone /> Copied!</> : <><CopyIcon /> Copy</>}
-                        </button>
-                        <button className="btn-secondary" style={{ padding:'8px 14px', fontSize:13 }} onClick={() => exportPDF(coverLetter, 'Cover Letter')}>
+                        <button className="btn-secondary" style={{ padding:'8px 14px', fontSize:13 }} onClick={() => exportPDF(improvedCV, 'CV')}>
                           <DownloadIcon /> Export PDF
                         </button>
                       </div>
                     </div>
-                    <CVPreview content={coverLetter} />
+                    <CVPreview content={improvedCV} />
                   </div>
                 )}
               </div>
@@ -620,7 +452,7 @@ export default function Tool({ onBack }) {
         )}
 
         {/* ══════════════════════════════════════════ */}
-        {/* GENERATE MODE */}
+        {/* GENERATE MODE                              */}
         {/* ══════════════════════════════════════════ */}
         {mode === 'generate' && (
           <>
@@ -635,7 +467,7 @@ export default function Tool({ onBack }) {
               <textarea
                 className="field"
                 rows={16}
-                placeholder={"Just tell us what you've done — no need to format it:\n\nI worked at Acme Corp for 4 years as a software engineer. I built a customer dashboard using React that was used by 50,000 users. I also led the migration from JavaScript to TypeScript which reduced bugs by 40%.\n\nBefore that I did a Computer Science degree at UCT (2015–2019), graduated with distinction.\n\nI also did an internship at StartupXYZ where I helped build their mobile app.\n\nSkills: React, TypeScript, Node.js, AWS, Python, SQL\n\nI'm good at leading small teams and have mentored 3 junior developers."}
+                placeholder={"Just tell us what you've done — no need to format it:\n\nI worked at Acme Corp for 4 years as a software engineer. I built a customer dashboard using React that was used by 50,000 users. I also led the migration from JavaScript to TypeScript which reduced bugs by 40%.\n\nBefore that I did a Computer Science degree at UCT (2015–2019), graduated with distinction.\n\nSkills: React, TypeScript, Node.js, AWS, Python, SQL\n\nI'm good at leading small teams and have mentored 3 junior developers."}
                 value={genInput}
                 onChange={e => setGenInput(e.target.value)}
                 disabled={genStep === 'generating'}
@@ -643,32 +475,27 @@ export default function Tool({ onBack }) {
               <div style={{ fontSize:12, color:'var(--text-muted)', marginTop:6 }}>{genInput.length} characters</div>
             </div>
 
-            {/* Generate button */}
             {genStep === 'input' && (
               <div style={{ display:'flex', gap:12, flexWrap:'wrap' }}>
                 <button className="btn-primary" onClick={handleGenerate} disabled={genInput.trim().length < 50}>
                   <SparkleIcon /> Generate My CV
                 </button>
                 {genInput.trim().length < 50 && (
-                  <span style={{ fontSize:13, color:'var(--text-muted)', alignSelf:'center' }}>
-                    Describe your experience to continue
-                  </span>
+                  <span style={{ fontSize:13, color:'var(--text-muted)', alignSelf:'center' }}>Describe your experience to continue</span>
                 )}
               </div>
             )}
 
-            {/* Generating spinner */}
             {genStep === 'generating' && (
               <div className="fade-in card" style={{ display:'flex', alignItems:'center', gap:16, padding:'24px 28px', marginTop:8 }}>
                 <div className="spinner" />
                 <div>
                   <div style={{ fontWeight:600, marginBottom:4 }}>Generating your CV with Claude AI...</div>
-                  <div style={{ fontSize:13, color:'var(--text-muted)' }}>Turning your experience into a professional CV. This takes 15–30 seconds.</div>
+                  <div style={{ fontSize:13, color:'var(--text-muted)' }}>Turning your experience into a professional CV. Takes 15–30 seconds.</div>
                 </div>
               </div>
             )}
 
-            {/* Generated CV output */}
             {genStep === 'result' && generatedCV && (
               <div className="card fade-up" style={{ marginTop:8 }}>
                 <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16, flexWrap:'wrap', gap:12 }}>
@@ -683,11 +510,8 @@ export default function Tool({ onBack }) {
                     <button className="btn-secondary" style={{ padding:'8px 14px', fontSize:13 }} onClick={() => exportPDF(generatedCV, 'CV')}>
                       <DownloadIcon /> Export PDF
                     </button>
-                    <button
-                      className="btn-primary"
-                      style={{ padding:'8px 16px', fontSize:13 }}
-                      onClick={() => { setGenStep('input'); setGeneratedCV(''); setError('') }}
-                    >
+                    <button className="btn-primary" style={{ padding:'8px 16px', fontSize:13 }}
+                      onClick={() => { setGenStep('input'); setGeneratedCV(''); setError('') }}>
                       Start Over
                     </button>
                   </div>
