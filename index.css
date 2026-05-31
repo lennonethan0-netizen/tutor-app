@@ -250,6 +250,43 @@ body {
   overflow-y: auto;
 }
 
+/* ── Rendered CV document ── */
+.cv-doc {
+  background: #ffffff;
+  color: #1a1a1a;
+  border-radius: 10px;
+  padding: 40px 48px;
+  font-family: 'Calibri', 'Georgia', serif;
+  font-size: 14px;
+  line-height: 1.7;
+  max-height: 640px;
+  overflow-y: auto;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.35);
+}
+.cv-doc h1 {
+  font-size: 22px;
+  font-weight: 800;
+  color: #111;
+  margin-bottom: 2px;
+  letter-spacing: -0.01em;
+}
+.cv-doc h2 {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #444;
+  border-bottom: 1.5px solid #ddd;
+  padding-bottom: 4px;
+  margin: 20px 0 10px;
+}
+.cv-doc strong { color: #111; font-weight: 700; }
+.cv-doc em { color: #555; }
+.cv-doc ul { padding-left: 18px; margin: 6px 0 12px; }
+.cv-doc li { margin: 4px 0; color: #333; list-style: disc; }
+.cv-doc p { margin: 6px 0; color: #333; }
+.cv-doc br + br { display: block; margin-top: 6px; }
+
 /* ── Animations ── */
 @keyframes fadeUp {
   from { opacity:0; transform:translateY(16px); }

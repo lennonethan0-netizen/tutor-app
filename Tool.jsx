@@ -125,13 +125,36 @@ async function serverCall(endpoint, body) {
   return data.result
 }
 
+// ── Markdown → HTML ───────────────────────────────────────────────────
+function mdToHtml(content) {
+  return content
+    .replace(/## (.+)/g, '<h2>$1</h2>')
+    .replace(/# (.+)/g, '<h1>$1</h1>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/^- (.+)$/gm, '<li>$1</li>')
+    .replace(/(<li>.*<\/li>)(\n<li>)/g, '$1$2')
+    .replace(/(<li>[\s\S]+?<\/li>)(?!\n<li>)/g, '<ul>$1</ul>')
+    .replace(/\n\n/g, '</p><p>')
+    .replace(/^(?!<[hup]|<li)(.+)$/gm, '$1')
+    .replace(/\n/g, '<br/>')
+}
+
+// ── CV Preview (rendered markdown document) ───────────────────────────
+function CVPreview({ content }) {
+  return (
+    <div className="cv-doc" dangerouslySetInnerHTML={{ __html: mdToHtml(content) }} />
+  )
+}
+
 // ── Export PDF ────────────────────────────────────────────────────────
 function exportPDF(content, type = 'CV') {
   const w = window.open('', '_blank')
   const md = content
-    .replace(/## (.+)/g, '<h2 style="font-size:15pt;font-weight:700;border-bottom:1px solid #000;padding-bottom:4px;margin:16px 0 8px">$1</h2>')
+    .replace(/## (.+)/g, '<h2 style="font-size:13pt;font-weight:700;border-bottom:1px solid #333;padding-bottom:3px;margin:16px 0 8px;text-transform:uppercase;letter-spacing:0.04em">$1</h2>')
+    .replace(/# (.+)/g, '<h1 style="font-size:18pt;font-weight:700;margin-bottom:4px">$1</h1>')
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/^- (.+)$/gm, '<li style="margin:4px 0">$1</li>')
+    .replace(/^- (.+)$/gm, '<li style="margin:3px 0">$1</li>')
     .replace(/\n\n/g, '<br/><br/>')
     .replace(/\n/g, '<br/>')
   w.document.write(`<!DOCTYPE html>
@@ -567,7 +590,7 @@ export default function Tool({ onBack }) {
                         )}
                       </div>
                     </div>
-                    <div className="cv-output">{optimizedCV}</div>
+                    <CVPreview content={optimizedCV} />
                   </div>
                 )}
 
@@ -588,7 +611,7 @@ export default function Tool({ onBack }) {
                         </button>
                       </div>
                     </div>
-                    <div className="cv-output">{coverLetter}</div>
+                    <CVPreview content={coverLetter} />
                   </div>
                 )}
               </div>
@@ -669,7 +692,7 @@ export default function Tool({ onBack }) {
                     </button>
                   </div>
                 </div>
-                <div className="cv-output">{generatedCV}</div>
+                <CVPreview content={generatedCV} />
               </div>
             )}
           </>
